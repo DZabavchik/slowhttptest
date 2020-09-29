@@ -67,7 +67,7 @@ class SlowSocket;
 class SlowHTTPTest {
  public:
   SlowHTTPTest(int delay, int duration, int interval,
-   int con_cnt, int max_random_data_len, int content_length,
+   int con_cnt, int max_random_data_len, int content_length, const std::string& content,
    SlowTestType type, bool need_stats,int pipeline_factor,
    int probe_interval, int range_start,
    int range_limit, int read_interval,
@@ -87,7 +87,7 @@ class SlowHTTPTest {
  private:
   void close_sock(int id);
   bool change_fd_limits();
-  const char* get_random_extra();
+  const char* get_random_extra(int i, bool rem);
  
   static bool resolve_addr(const char* host, 
     const char* port, addrinfo **addr, bool is_ipv6=false);
@@ -99,6 +99,7 @@ class SlowHTTPTest {
   std::string probe_request_;
   std::string random_extra_;
   std::string verb_;
+  std::string content_;
   std::string cookie_;
   std::string user_agent_;
   std::string content_type_;

@@ -97,8 +97,7 @@ static const char referer[] =
 static const char content_type_default[] = "Content-Type: application/x-www-form-urlencoded\r\n";
 static const char accept_default[] = "Accept: text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5\r\n"; 
 static const char post_request[] = "Connection: close\r\n"
-    "\r\n"
-    "foo=bar";
+    "\r\n";
 // per RFC 2616 section 4.2, header can be any US_ASCII character (0-127),
 // but we'll start with X-
 static const char header_prefix[] = "X-";
@@ -116,7 +115,8 @@ namespace slowhttptest {
 SlowHTTPTest::SlowHTTPTest(int delay, int duration, 
                            int interval, int con_cnt,
                            int max_random_data_len,
-                           int content_length, SlowTestType type,
+                           int content_length, const std::string& content,
+                           SlowTestType type,
                            bool need_stats, int pipeline_factor, 
                            int probe_interval,
                            int range_start, int range_limit,
@@ -148,7 +148,8 @@ SlowHTTPTest::SlowHTTPTest(int delay, int duration,
       window_upper_limit_(window_upper_limit),
       is_dosed_(false),
       proxy_type_(proxy_type),
-      debug_level_(debug_level) {
+      debug_level_(debug_level),
+      content_(content){
 }
 
 SlowHTTPTest::~SlowHTTPTest() {
@@ -201,16 +202,26 @@ bool SlowHTTPTest::change_fd_limits() {
   return true;
 }
 
-const char* SlowHTTPTest::get_random_extra() {
-  random_extra_.clear();
-  random_extra_.append(prefix_);
-  random_extra_.append(textgen_.get_text(extra_data_max_len_));
-  random_extra_.append(separator_);
-  random_extra_.append(textgen_.get_text(extra_data_max_len_));
-  if(postfix_) {
-    random_extra_.append(postfix_);
+const char* SlowHTTPTest::get_random_extra(int i, bool remainder) {
+  if (content_.empty() || sock_[i]->get_sent() >= content_length_) {
+    random_extra_.clear();
+    random_extra_.append(prefix_);
+    random_extra_.append(textgen_.get_text(extra_data_max_len_));
+    random_extra_.append(separator_);
+    random_extra_.append(textgen_.get_text(extra_data_max_len_));
+    if(postfix_) {
+      random_extra_.append(postfix_);
+    }
+  } else {
+    // Sending part of content
+    if (remainder) {
+      random_extra_ = content_.substr(sock_[i]->get_sent()).c_str();
+    } else {
+      random_extra_ = content_.substr(sock_[i]->get_sent(), extra_data_max_len_);
+    }
   }
   return random_extra_.c_str();
+
 }
 
 bool SlowHTTPTest::init(const char* url, const char* verb,
@@ -967,7 +978,7 @@ bool SlowHTTPTest::run_test() {
             } else if(sock_[i]->get_followups_to_send() > 0
                 && (seconds_passed_ > 0
                     && seconds_passed_ % followup_timing_ == 0)) {
-              extra_data = get_random_extra();
+              extra_data = get_random_extra(i, sock_[i]->get_followups_to_send() == 1);
               ret = sock_[i]->send_slow(extra_data,
                   strlen(extra_data), eFollowUpSend);
               if(ret <= 0 && errno != EAGAIN) {

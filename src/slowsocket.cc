@@ -48,6 +48,7 @@ SlowSocket::SlowSocket()
       followups_to_send_(0),
       last_followup_timing_(0),
       offset_(0),
+      sent_(0),
       ssl_(0),
       ssl_ctx_(0),
       buf_(0),
@@ -242,6 +243,10 @@ int SlowSocket::send_slow(const void* buf, size_t len, const SendType type) {
 
   ret = ssl_ ? SSL_write(ssl_, buf_, offset_)
                  : send(sockfd_, buf_, offset_, 0);
+
+  if (eFollowUpSend == type) {
+    sent_ += ret;
+  }
 
   // entire data was sent
   if(ret > 0 && ret == offset_) {

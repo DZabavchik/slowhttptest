@@ -100,6 +100,10 @@ class SlowSocket {
     return state_;
   }
 
+  const int get_sent() const {
+    return sent_ ;
+  }
+
   const bool is_ready_read(const timeval* t) const;
   void set_last_read(const timeval* t);
 
@@ -130,6 +134,7 @@ class SlowSocket {
   int followups_to_send_;
   int last_followup_timing_;
   int offset_;
+  int sent_;
   SSL* ssl_;
   SSL_CTX* ssl_ctx_;
   const void* buf_;

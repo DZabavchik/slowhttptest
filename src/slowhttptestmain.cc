@@ -33,7 +33,9 @@
 
 #include <memory>
 #include <cctype>
-
+#include <string>
+#include <fstream>
+#include <streambuf>
 #include "slowlog.h"
 #include "slowhttptest.h"
 
@@ -70,6 +72,7 @@ static void usage() {
       "  -l seconds       target test length in seconds (240)\n"
       "  -r rate          connections per seconds (50)\n"
       "  -s bytes         value of Content-Length header if needed (4096)\n"
+      "  -q filename      filename with content to send in body (implies Content-Length)\n"
       "  -t verb          verb to use in request, default to GET for\n"
       "                   slow headers and response and to POST for slow body\n"
       "  -u URL           absolute URL of target (http://localhost/)\n"
@@ -148,6 +151,7 @@ int main(int argc, char **argv) {
   char proxy[1024] = { 0 };
   char verb[16] = { 0 };
   char content_type[1024] = { 0 };
+  std::string content;
   char accept[1024] = { 0 };
   char cookie[1024] = { 0 };
   // default values
@@ -171,7 +175,7 @@ int main(int argc, char **argv) {
   ProxyType proxy_type = slowhttptest::eNoProxy;
   long tmp;
   int o;
-  while((o = getopt(argc, argv, ":HBRXgha:b:c:d:e:f:i:j:k:l:m:n:o:p:r:s:t:u:v:w:x:y:z:")) != -1) {
+  while((o = getopt(argc, argv, ":HBRXgha:b:c:d:e:f:i:j:k:l:m:n:o:p:q:r:s:t:u:v:w:x:y:z:")) != -1) {
     switch (o) {
       case 'a':
         if(!parse_int(range_start, 65539))
@@ -199,6 +203,18 @@ int main(int argc, char **argv) {
         break;
       case 'f':
         strncpy(content_type, optarg, 1023);
+        break;
+      case 'q': {
+          std::ifstream t(optarg);
+
+          t.seekg(0, std::ios::end);
+          content.reserve(t.tellg());
+          t.seekg(0, std::ios::beg);
+
+          content.assign((std::istreambuf_iterator<char>(t)),
+                     std::istreambuf_iterator<char>());
+          content_length = content.length();
+        }
         break;
       case 'h':
         usage();
@@ -316,7 +332,7 @@ int main(int argc, char **argv) {
   slowlog_init(debug_level, NULL);
   UNIQUE_PTR<SlowHTTPTest> slow_test(
       new SlowHTTPTest(rate, duration, interval,
-      conn_cnt, max_random_data_len, content_length,
+      conn_cnt, max_random_data_len, content_length, content,
       type, need_stats, pipeline_factor, probe_interval,
       range_start, range_limit, read_interval, read_len,
       window_lower_limit, window_upper_limit, proxy_type, debug_level));
